@@ -9,7 +9,7 @@ Read more about man in the middle attack [here](https://en.wikipedia.org/wiki/Ma
 2. open a terminal in the main folder and run the following command:  
 
 ```
-gcc telnetSniffer.c -o telSniff
+gcc telnetSniffer.c -o telSniff -lpcap
 ```  
 3. to run use the following comand:  
 
