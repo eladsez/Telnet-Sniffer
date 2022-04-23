@@ -18,6 +18,14 @@ gcc telnetSniffer.c -o telSniff -lpcap
 ./telSniff
 ```    
 
+
+<div class="center">
+x-special/nautilus-clipboard
+copy
+file:///home/elad/Desktop/image8.png
+
+</div>
+
 ## DISCLAIMER!
 This is only for testing purposes and can only be used where strict consent has been given.  
 Do not use this for illegal purposes, period. 
