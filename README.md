@@ -1,7 +1,7 @@
 # Telnet-Sniffer
 
 C code for sniffing out TELNET login information.
-In order to use this attack a "man in the middle" must be performed with the victim.
+In order to use this attack a "man in the middle" must be performed with the victim.  
 Read more about man in the middle attack [here](https://en.wikipedia.org/wiki/Man-in-the-middle_attack)
             
 ## How To Run
