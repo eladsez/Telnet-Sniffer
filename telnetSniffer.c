@@ -8,6 +8,7 @@
 #include <netinet/tcp.h>
 
 #define EOL 0x0d // end of line character "\n\r"
+#define NIC "wlp0s20f3"
 
 
 int captureTelnet = 0; // to check if we need to start sniffing username/password
@@ -122,7 +123,7 @@ int main()
 	bpf_u_int32 net;
 	// Step 1: Open live pcap session on containers interface
 	//The value 1 of the third parameter turns on the promiscuous mode 
-	handle = pcap_open_live("br-9ef4b8cde917", BUFSIZ, 1, 1000, errbuf); 
+	handle = pcap_open_live(NIC, BUFSIZ, 1, 1000, errbuf); 
 	
 	// Step 2: Compile filter_exp into BPF psuedo-code
 	pcap_compile(handle, &fp, filter_exp, 0, net);
